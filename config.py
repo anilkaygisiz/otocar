@@ -18,8 +18,18 @@ if env_source:
 
 DEBUG_MODE = True
 
-# Otomatik Headless Algılama (Ekran yoksa True olur)
-if os.environ.get('DISPLAY') is None:
+# Görüntü Ayarları
+# True: SSH'dan bağlansanız bile ekranı açmaya zorlar (VNC/HDMI için :0 ekranını kullanır)
+# False: Ekran yoksa otomatik Headless moda geçer (Görüntü yok, sadece log)
+FORCE_DISPLAY = True
+
+# Otomatik Headless Algılama
+if FORCE_DISPLAY:
+    if os.environ.get('DISPLAY') is None:
+        os.environ['DISPLAY'] = ':0' # Varsayılan ekranı ata
+    HEADLESS_MODE = False
+    print("Ekran zorlandı (FORCE_DISPLAY). Hedef: " + os.environ.get('DISPLAY', ':0'))
+elif os.environ.get('DISPLAY') is None:
     HEADLESS_MODE = True
     print("Headless mod aktif: Ekran bulunamadı.")
 else:
