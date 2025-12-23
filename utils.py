@@ -1,4 +1,29 @@
 import re
+import os
+import glob
+
+def scan_videos(folder="Videos"):
+    """
+    Belirtilen klasördeki video dosyalarını listeler.
+    """
+    extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
+    video_files = []
+    
+    # Klasör yoksa oluştur
+    if not os.path.exists(folder):
+        try:
+            os.makedirs(folder)
+            print(f"Klasör oluşturuldu: {folder}")
+        except:
+            pass
+            
+    for ext in extensions:
+        # Case insensitive (bazı sistemlerde gerekebilir, burada basit glob)
+        video_files.extend(glob.glob(os.path.join(folder, ext)))
+    
+    # Sırala
+    video_files.sort()
+    return video_files
 
 def save_pid_config(filepath, kp, ki, kd):
     """

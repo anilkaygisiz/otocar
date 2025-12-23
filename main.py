@@ -26,6 +26,16 @@ def main():
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
+    # Video Listesini Al
+    video_files = utils.scan_videos("Videos")
+    # Eğer hiç video yoksa veya ana config'deki video dosyası listede yoksa listeye ekle (eğer dosya ise)
+    current_video_idx = 0
+    
+    # Config'deki video zaten bir dosya ise ve listede varsa onun indeksini bul
+    if isinstance(config.VIDEO_SOURCE, str) and os.path.exists(config.VIDEO_SOURCE):
+        # Tam yol gerekebilir, şimdilik basit karşılaştırma
+        pass
+
     # Trackbar için callback (boş)
     def nothing(x):
         pass
@@ -37,15 +47,50 @@ def main():
         cv2.createTrackbar("KP x100", "Otocar Main", int(config.PID_KP * 100), 500, nothing)
         cv2.createTrackbar("KI x100", "Otocar Main", int(config.PID_KI * 100), 100, nothing)
         cv2.createTrackbar("KD x100", "Otocar Main", int(config.PID_KD * 100), 500, nothing)
+        
+        # Video Seçici (Eğer video dosyaları varsa)
+        if len(video_files) > 0:
+            cv2.createTrackbar("Video ID", "Otocar Main", 0, len(video_files) - 1, nothing)
+
+    # İlk video kaynağını belirle
+    current_source = config.VIDEO_SOURCE
+    if len(video_files) > 0:
+        current_source = video_files[0] # Varsayılan olarak listedeki ilk video ile başla
+        
+    print(f"İlk Kaynak: {current_source}")
+    cap = cv2.VideoCapture(current_source)
+    
+    # ... (Çözünürlük ayarları vs aynı kalır)
+    # Kamera çözünürlüğünü ayarla (Webcam ise işe yarar)
+    if isinstance(current_source, int):
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
+
+    last_video_idx = -1
 
     while True:
+        # Trackbar'dan Video Değişimi Kontrolü
+        if not config.HEADLESS_MODE and len(video_files) > 0:
+            try:
+                vid_idx = cv2.getTrackbarPos("Video ID", "Otocar Main")
+                if vid_idx != last_video_idx and vid_idx < len(video_files):
+                    # Video Değiştir
+                    print(f"Video değiştiriliyor: {video_files[vid_idx]}")
+                    current_source = video_files[vid_idx]
+                    cap.release()
+                    cap = cv2.VideoCapture(current_source)
+                    last_video_idx = vid_idx
+            except:
+                pass
+
         ret, frame = cap.read()
         if not ret:
             print("Video bitti. Başa sarılıyor...")
-            if isinstance(config.VIDEO_SOURCE, str):
+            if isinstance(current_source, str):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
             else:
+                # Video okunamadıysa
                 break
         
         height, width = frame.shape[:2]
@@ -85,6 +130,10 @@ def main():
         cv2.putText(processed_frame, f"Error: {error} PID: {steering:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
         # Motor Hızları
         cv2.putText(processed_frame, f"L: {int(left_speed)} R: {int(right_speed)}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+        # Video Adı
+        vid_name = str(current_source)
+        if len(vid_name) > 20: vid_name = "..." + vid_name[-17:]
+        cv2.putText(processed_frame, f"Src: {vid_name}", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
         # PID Katsayıları
         pid_info = f"Kp: {pid.Kp} Ki: {pid.Ki} Kd: {pid.Kd}"
         cv2.putText(processed_frame, pid_info, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
