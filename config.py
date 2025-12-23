@@ -6,7 +6,7 @@ VERSION = "v0.1 Beta"
 # Camera Settings
 # Webcam: 0, 1 (int)
 # File: "path/to/video.mp4" (str)
-VIDEO_SOURCE = "lane_test.mp4"
+VIDEO_SOURCE = "Videos/test1.mp4"
 
 # Eğer environment variable varsa oradan al (Override)
 env_source = os.getenv("VIDEO_SOURCE")
@@ -17,6 +17,7 @@ if env_source:
         VIDEO_SOURCE = env_source
 
 DEBUG_MODE = True
+HEADLESS_MODE = False # Ekran yoksa True yapın (SSH ile bağlanıyorsanız)
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 

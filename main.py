@@ -54,13 +54,21 @@ def main():
         cv2.putText(processed_frame, f"Error: {error} PID: {steering:.2f}", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         cv2.putText(processed_frame, f"L: {int(left_speed)} R: {int(right_speed)}", (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
         
-        if config.DEBUG_MODE:
-            cv2.imshow("Otocar Main", processed_frame)
-            cv2.imshow("Lane Threshold", debug_thresh)
+        if config.DEBUG_MODE and not config.HEADLESS_MODE:
+            try:
+                cv2.imshow("Otocar Main", processed_frame)
+                cv2.imshow("Lane Threshold", debug_thresh)
+            except Exception as e:
+                print(f"Ekran hatası (Headless moduna geçiliyor): {e}")
+                config.HEADLESS_MODE = True
         
-        # 'q' ile çıkış
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
+        # 'q' ile çıkış (Sadece ekran varsa)
+        if not config.HEADLESS_MODE:
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                break
+        else:
+            # Headless modda CPU'yu yormamak için minik bekleme
+             time.sleep(0.01)
             
     cap.release()
     cv2.destroyAllWindows()
