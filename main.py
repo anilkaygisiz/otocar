@@ -51,8 +51,13 @@ def main():
         # Şimdilik sadece simülasyon print
         
         # Bilgi Ekranı
-        cv2.putText(processed_frame, f"Error: {error} PID: {steering:.2f}", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        cv2.putText(processed_frame, f"L: {int(left_speed)} R: {int(right_speed)}", (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+        # Hata ve PID Çıktısı
+        cv2.putText(processed_frame, f"Error: {error} PID: {steering:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        # Motor Hızları
+        cv2.putText(processed_frame, f"L: {int(left_speed)} R: {int(right_speed)}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+        # PID Katsayıları
+        pid_info = f"Kp: {config.PID_KP} Ki: {config.PID_KI} Kd: {config.PID_KD}"
+        cv2.putText(processed_frame, pid_info, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
         
         if config.DEBUG_MODE and not config.HEADLESS_MODE:
             try:
