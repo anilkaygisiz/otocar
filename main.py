@@ -4,6 +4,7 @@ import time
 
 import lane_detector
 import pid_controller
+import utils
 
 def main():
     print(f"Otocar {config.VERSION} Başlatılıyor... Kaynak: {config.VIDEO_SOURCE}")
@@ -25,6 +26,18 @@ def main():
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
+    # Trackbar için callback (boş)
+    def nothing(x):
+        pass
+
+    # Trackbarları Oluştur (Sadece Headless değilse)
+    if not config.HEADLESS_MODE:
+        cv2.namedWindow("Otocar Main")
+        # Değerleri 100 ile çarpıp int yapıyoruz (Trackbar float desteklemez)
+        cv2.createTrackbar("KP x100", "Otocar Main", int(config.PID_KP * 100), 500, nothing)
+        cv2.createTrackbar("KI x100", "Otocar Main", int(config.PID_KI * 100), 100, nothing)
+        cv2.createTrackbar("KD x100", "Otocar Main", int(config.PID_KD * 100), 500, nothing)
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -35,6 +48,23 @@ def main():
             else:
                 break
         
+        height, width = frame.shape[:2]
+
+        # Trackbar Değerlerini Oku (Canlı Tuning)
+        if not config.HEADLESS_MODE:
+            # Sadece pencere açıksa oku
+            try:
+                kp_val = cv2.getTrackbarPos("KP x100", "Otocar Main") / 100.0
+                ki_val = cv2.getTrackbarPos("KI x100", "Otocar Main") / 100.0
+                kd_val = cv2.getTrackbarPos("KD x100", "Otocar Main") / 100.0
+                
+                # PID Kontrolcüsünü Güncelle
+                pid.Kp = kp_val
+                pid.Ki = ki_val
+                pid.Kd = kd_val
+            except:
+                pass # Pencere kapalıysa hata vermesin
+
         # Faz 1: Şerit Takip
         processed_frame, error, debug_thresh = lane_detector.process_frame(frame)
         
@@ -56,8 +86,9 @@ def main():
         # Motor Hızları
         cv2.putText(processed_frame, f"L: {int(left_speed)} R: {int(right_speed)}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
         # PID Katsayıları
-        pid_info = f"Kp: {config.PID_KP} Ki: {config.PID_KI} Kd: {config.PID_KD}"
+        pid_info = f"Kp: {pid.Kp} Ki: {pid.Ki} Kd: {pid.Kd}"
         cv2.putText(processed_frame, pid_info, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        cv2.putText(processed_frame, "'S' to Save Config", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
         if config.DEBUG_MODE and not config.HEADLESS_MODE:
             try:
@@ -67,13 +98,16 @@ def main():
                 print(f"Ekran hatası (Headless moduna geçiliyor): {e}")
                 config.HEADLESS_MODE = True
         
-        # 'q' ile çıkış (Sadece ekran varsa)
-        if not config.HEADLESS_MODE:
-            if cv2.waitKey(25) & 0xFF == ord('q'):
-                break
-        else:
-            # Headless modda CPU'yu yormamak için minik bekleme
-             time.sleep(0.01)
+        # Klavye Kontrolü
+        key = cv2.waitKey(25) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('s'):
+            # Kaydet
+            utils.save_pid_config("config.py", pid.Kp, pid.Ki, pid.Kd)
+            cv2.putText(processed_frame, "SAVED!", (width//2, height//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+            cv2.imshow("Otocar Main", processed_frame)
+            cv2.waitKey(500) # Yarım saniye göster
             
     cap.release()
     cv2.destroyAllWindows()
