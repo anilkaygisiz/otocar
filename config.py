@@ -30,7 +30,7 @@ FRAME_HEIGHT = 480
 
 # Image Processing
 ROI_HEIGHT_RATIO = 0.5  # Ekranın alt %50'si
-LANE_COLOR_THRESHOLD = 200 # 0-255 arası parlaklık eşiği
+LANE_COLOR_THRESHOLD = 140 # 0-255 arası parlaklık eşiği (Düşürüldü)
 
 # PID Settings
 PID_KP = 0.5  # Oransal katsayı (Hata ile orantılı tepki)

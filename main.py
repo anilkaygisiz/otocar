@@ -62,7 +62,7 @@ def main():
         if config.DEBUG_MODE and not config.HEADLESS_MODE:
             try:
                 cv2.imshow("Otocar Main", processed_frame)
-                cv2.imshow("Lane Threshold", debug_thresh)
+                # cv2.imshow("Lane Threshold", debug_thresh) # İkinci ekran kapatıldı
             except Exception as e:
                 print(f"Ekran hatası (Headless moduna geçiliyor): {e}")
                 config.HEADLESS_MODE = True

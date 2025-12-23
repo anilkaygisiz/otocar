@@ -45,8 +45,8 @@ def process_frame(frame):
                 
                 centers.append(cX)
                 
-                # Çizim (Debug)
-                cv2.drawContours(roi, [cnt], -1, (0, 255, 0), 2)
+                # Çizim (Debug) - Sarı renk (BGR: 0, 255, 255)
+                cv2.drawContours(roi, [cnt], -1, (0, 255, 255), 2)
                 cv2.circle(roi, (cX, cY), 7, (255, 0, 0), -1)
         
         if len(centers) > 0:
