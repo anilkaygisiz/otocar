@@ -24,3 +24,10 @@ FRAME_HEIGHT = 480
 ROI_HEIGHT_RATIO = 0.5  # Ekranın alt %50'si
 LANE_COLOR_THRESHOLD = 200 # 0-255 arası parlaklık eşiği
 
+# PID Settings
+PID_KP = 0.5  # Oransal katsayı (Hata ile orantılı tepki)
+PID_KI = 0.0  # İntegral katsayı (Toplam hata birikimi - genelde çizgi izlemede düşük veya 0)
+PID_KD = 0.1  # Türev katsayı (Hata değişim hızı - ani hareketleri sönümler)
+MAX_SPEED = 50 # Maksimum motor hızı (0-100 veya 0-255)
+BASE_SPEED = 30 # Düz giderkenki temel hız
+
