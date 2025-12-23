@@ -116,10 +116,12 @@ def main():
         mode_color = (0, 255, 0) if config.DETECTION_MODE == 'COLOR' else (255, 0, 255)
         cv2.putText(processed_frame, f"MODE: {config.DETECTION_MODE} ('m' toggle)", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.6, mode_color, 2)
 
-        # PID Katsayıları
-        pid_info = f"Kp: {pid.Kp} Ki: {pid.Ki} Kd: {pid.Kd}"
+        # PID Katsayıları ve Kısayollar
+        pid_info = f"Kp: {pid.Kp:.2f} Ki: {pid.Ki:.2f} Kd: {pid.Kd:.2f}"
         cv2.putText(processed_frame, pid_info, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-        cv2.putText(processed_frame, "'S' Save | 'Q' Quit", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        
+        shortcuts = "Kp: T/G | Ki: R/F | Kd: Y/H | 'S' Save"
+        cv2.putText(processed_frame, shortcuts, (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
         if config.DEBUG_MODE and not config.HEADLESS_MODE:
             try:
@@ -140,6 +142,31 @@ def main():
             cv2.imshow("Otocar Main", processed_frame)
             cv2.waitKey(500)
         
+        # PID Tuning Kısayolları (Her basışta 0.05 değiştirir)
+        elif key == ord('t'): # Kp Artır
+             pid.Kp += 0.05
+             if not config.HEADLESS_MODE: cv2.setTrackbarPos("KP x100", "Otocar Main", int(pid.Kp * 100))
+        elif key == ord('g'): # Kp Azalt
+             pid.Kp -= 0.05
+             if pid.Kp < 0: pid.Kp = 0
+             if not config.HEADLESS_MODE: cv2.setTrackbarPos("KP x100", "Otocar Main", int(pid.Kp * 100))
+             
+        elif key == ord('r'): # Ki Artır
+             pid.Ki += 0.05
+             if not config.HEADLESS_MODE: cv2.setTrackbarPos("KI x100", "Otocar Main", int(pid.Ki * 100))
+        elif key == ord('f'): # Ki Azalt
+             pid.Ki -= 0.05
+             if pid.Ki < 0: pid.Ki = 0
+             if not config.HEADLESS_MODE: cv2.setTrackbarPos("KI x100", "Otocar Main", int(pid.Ki * 100))
+
+        elif key == ord('y'): # Kd Artır
+             pid.Kd += 0.05
+             if not config.HEADLESS_MODE: cv2.setTrackbarPos("KD x100", "Otocar Main", int(pid.Kd * 100))
+        elif key == ord('h'): # Kd Azalt
+             pid.Kd -= 0.05
+             if pid.Kd < 0: pid.Kd = 0
+             if not config.HEADLESS_MODE: cv2.setTrackbarPos("KD x100", "Otocar Main", int(pid.Kd * 100))
+
         # Video Değiştirme (Klavye ile)
         elif key == ord('n') or key == ord('p'):
             if len(video_files) > 0:
