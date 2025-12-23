@@ -17,7 +17,14 @@ if env_source:
         VIDEO_SOURCE = env_source
 
 DEBUG_MODE = True
-HEADLESS_MODE = False # Ekran yoksa True yapın (SSH ile bağlanıyorsanız)
+
+# Otomatik Headless Algılama (Ekran yoksa True olur)
+if os.environ.get('DISPLAY') is None:
+    HEADLESS_MODE = True
+    print("Headless mod aktif: Ekran bulunamadı.")
+else:
+    HEADLESS_MODE = False
+
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 
