@@ -40,7 +40,19 @@ FRAME_HEIGHT = 480
 
 # Image Processing
 ROI_HEIGHT_RATIO = 0.5  # Ekranın alt %50'si
-LANE_COLOR_THRESHOLD = 140 # 0-255 arası parlaklık eşiği (Düşürüldü)
+LANE_COLOR_THRESHOLD = 140 # 0-255 arası parlaklık eşiği (Brightness Mode)
+
+# Algılama Modu: 'BRIGHTNESS' veya 'COLOR'
+DETECTION_MODE = 'BRIGHTNESS'
+
+# HSV Renk Ayarları (Color Mode)
+# Sarı (Yellow) Aralığı
+HSV_LOWER_YELLOW = [20, 100, 100]
+HSV_UPPER_YELLOW = [40, 255, 255]
+
+# Beyaz (White) Aralığı (Gölge vb hassas ayar gerekebilir)
+HSV_LOWER_WHITE = [0, 0, 200]
+HSV_UPPER_WHITE = [180, 50, 255]
 
 # PID Settings
 PID_KP = 0.5  # Oransal katsayı (Hata ile orantılı tepki)

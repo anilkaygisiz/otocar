@@ -135,6 +135,10 @@ def main():
         vid_name = str(current_source)
         if len(vid_name) > 20: vid_name = "..." + vid_name[-17:]
         cv2.putText(processed_frame, f"Src: {vid_name}", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        # Mod Bilgisi
+        mode_color = (0, 255, 0) if config.DETECTION_MODE == 'COLOR' else (255, 0, 255)
+        cv2.putText(processed_frame, f"MODE: {config.DETECTION_MODE} ('m' to toggle)", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.6, mode_color, 2)
+
         # PID Katsayıları
         pid_info = f"Kp: {pid.Kp} Ki: {pid.Ki} Kd: {pid.Kd}"
         cv2.putText(processed_frame, pid_info, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
@@ -152,6 +156,14 @@ def main():
         key = cv2.waitKey(25) & 0xFF
         if key == ord('q'):
             break
+        elif key == ord('m'):
+            # Mod Değiştir
+            if config.DETECTION_MODE == 'BRIGHTNESS':
+                config.DETECTION_MODE = 'COLOR'
+            else:
+                config.DETECTION_MODE = 'BRIGHTNESS'
+            print(f"Mod Değiştirildi: {config.DETECTION_MODE}")
+            
         elif key == ord('s'):
             # Kaydet
             utils.save_pid_config("config.py", pid.Kp, pid.Ki, pid.Kd)
