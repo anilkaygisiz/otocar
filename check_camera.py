@@ -1,60 +1,68 @@
 import cv2
 import time
 
-def test_config(index, width, height, fourcc=None):
-    desc = f"Index {index} | {width}x{height}"
-    if fourcc: desc += f" | {fourcc}"
-    else: desc += " | Auto Format"
+def test_config(index, backend_name, backend_id, use_gray=False):
+    desc = f"Index {index} | {backend_name}"
+    if use_gray: desc += " | GRAYSCALE/RAW"
     
     print(f"--- Testing: {desc} ---")
     
-    cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
+    cap = cv2.VideoCapture(index, backend_id)
     if not cap.isOpened():
         print("[-] Failed to open.")
         return False
         
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-    if fourcc:
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    if use_gray:
+        # Prevent auto-conversion to RGB (gets raw data/YUYV or Grey)
+        cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
         
-    # Read Actual properties
+    # Read properties
     aw = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     ah = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     print(f"    Set -> {int(aw)}x{int(ah)}")
     
-    # Warmup
+    time.sleep(1) # Warmup
+    
+    # Read loop
     success = False
-    for i in range(10):
+    for i in range(20): # Increased attempts
         ret, frame = cap.read()
         if ret:
-            print(f"[+] SUCCESS! Frame {i} captured. Shape: {frame.shape}")
+            print(f"[+] SUCCESS! Frame {i} captured.")
+            if frame is not None:
+                print(f"    Shape: {frame.shape}")
+                # If raw, it might be 2D or YUYV
             success = True
             break
-        time.sleep(0.2)
+        time.sleep(0.1)
         
     cap.release()
     return success
 
-# Scenarios to try
-configs = [
-    # 1. YuzTanima Replica (V4L2, 640x480, Auto Format)
-    (0, 640, 480, None),
+# Scenarios
+scenarios = [
+    # 1. Try CAP_ANY (Let OpenCV decide, GStreamer might work now that pipewire is gone)
+    (0, "CAP_ANY (Auto)", cv2.CAP_ANY, False),
     
-    # 2. Lower Res (V4L2, 320x240, Auto Format)
-    (0, 320, 240, None),
+    # 2. Try V4L2 Grayscale Force (Bandwidth saver)
+    (0, "V4L2 (Raw/Gray)", cv2.CAP_V4L2, True),
     
-    # 3. Explicit YUYV (Last resort)
-    (0, 640, 480, "YUYV"),
-    
-    # 4. Try Index 1
-    (1, 640, 480, None)
+    # 3. Last ditch: Index 0, V4L2, Normal
+    (0, "V4L2 (RGB)", cv2.CAP_V4L2, False)
 ]
 
-print("Starting Camera Diagnostics (v3 - Minimalist)...")
-for idx, w, h, fcc in configs:
-    if test_config(idx, w, h, fcc):
-        print("\nWINNER FOUND!")
-        print(f"Index: {idx}, Res: {w}x{h}, FourCC: {fcc}")
-        break  
+print("Starting Camera Diagnostics (v4 - desperation)...")
+found = False
+for idx, name, bid, gray in scenarios:
+    if test_config(idx, name, bid, gray):
+        print(f"\nWINNER FOUND: {name}")
+        if gray: print("NOTE: Using Grayscale mode (Good for Lane Detection!)")
+        found = True
+        break
+        
+if not found:
+    print("\nXXX ALL FAILED XXX")
 
