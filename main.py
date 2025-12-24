@@ -51,9 +51,18 @@ def main():
         # İlk turda veya değişimde VideoCapture başlat
         if 'cap' not in locals() or not cap.isOpened():
              print(f"Kaynak başlatılıyor: {current_source}")
-             cap = cv2.VideoCapture(current_source)
-             # Kamera ise biraz ısınmasını bekle
-             if current_source == 0: time.sleep(1)
+             
+             if current_source == 0:
+                 # Raspberry Pi Kamera Hatası Fix: V4L2 backend kullan
+                 cap = cv2.VideoCapture(current_source, cv2.CAP_V4L2)
+                 # Donanım seviyesinde çözünürlük ayarla (Bellek hatasını önler)
+                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
+                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
+                 # MJPG formatını zorla (Daha hızlıdır)
+                 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+                 time.sleep(1) # Isınma süresi
+             else:
+                 cap = cv2.VideoCapture(current_source)
 
         ret, frame = cap.read()
         
