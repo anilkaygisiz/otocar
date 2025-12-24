@@ -1,70 +1,60 @@
 import cv2
 import time
 
-def test_camera_yuyv(source, backend_name, backend_id):
-    print(f"--- Testing {backend_name} ---")
-    print(f"    Source: {source}")
+def test_config(index, width, height, fourcc=None):
+    desc = f"Index {index} | {width}x{height}"
+    if fourcc: desc += f" | {fourcc}"
+    else: desc += " | Auto Format"
     
-    try:
-        if backend_id is not None:
-             cap = cv2.VideoCapture(source, backend_id)
-        else:
-             cap = cv2.VideoCapture(source)
-             
-        if not cap.isOpened():
-            print(f"[-] Failed to open.")
-            return False
-            
-        # FORCE YUYV (Since MJPG is missing)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', 'U', 'Y', 'V'))
-        
-        # Read properties to confirm
-        w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print(f"    Configured -> Res: {int(w)}x{int(h)}")
-
-        # Warmup read
-        success = False
-        for i in range(5):
-            ret, frame = cap.read()
-            if ret:
-                print(f"[+] SUCCESS! Frame received. Shape: {frame.shape}")
-                print(f"    This configuration works!")
-                success = True
-                break
-            time.sleep(0.5)
-            
-        cap.release()
-        return success
-    except Exception as e:
-        print(f"[-] Error: {e}")
+    print(f"--- Testing: {desc} ---")
+    
+    cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
+    if not cap.isOpened():
+        print("[-] Failed to open.")
         return False
-
-# Scenarios based on v4l2-ctl output (YUYV supported)
-scenarios = [
-    # 1. Standard V4L2 with YUYV force
-    (0, "OpenCV V4L2 (Force YUYV)", cv2.CAP_V4L2),
+        
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    if fourcc:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc))
+        
+    # Read Actual properties
+    aw = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    ah = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    print(f"    Set -> {int(aw)}x{int(ah)}")
     
-    # 2. GStreamer Pipeline (Explicit YUY2)
-    ("v4l2src device=/dev/video0 ! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 ! videoconvert ! appsink", 
-     "GStreamer Pipeline (YUY2)", cv2.CAP_GSTREAMER),
-     
-    # 3. Libcamera Source (Newer Pi OS)
-    ("libcamerasrc ! video/x-raw,width=640,height=480,framerate=30/1 ! videoconvert ! appsink", 
-     "GStreamer Libcamera", cv2.CAP_GSTREAMER)
+    # Warmup
+    success = False
+    for i in range(10):
+        ret, frame = cap.read()
+        if ret:
+            print(f"[+] SUCCESS! Frame {i} captured. Shape: {frame.shape}")
+            success = True
+            break
+        time.sleep(0.2)
+        
+    cap.release()
+    return success
+
+# Scenarios to try
+configs = [
+    # 1. YuzTanima Replica (V4L2, 640x480, Auto Format)
+    (0, 640, 480, None),
+    
+    # 2. Lower Res (V4L2, 320x240, Auto Format)
+    (0, 320, 240, None),
+    
+    # 3. Explicit YUYV (Last resort)
+    (0, 640, 480, "YUYV"),
+    
+    # 4. Try Index 1
+    (1, 640, 480, None)
 ]
 
-found = False
-for source, name, bid in scenarios:
-    if test_camera_yuyv(source, name, bid):
-        print(f"\nWINNER: {name}")
-        print(f"Source String: {source}")
-        found = True
-        break
+print("Starting Camera Diagnostics (v3 - Minimalist)...")
+for idx, w, h, fcc in configs:
+    if test_config(idx, w, h, fcc):
+        print("\nWINNER FOUND!")
+        print(f"Index: {idx}, Res: {w}x{h}, FourCC: {fcc}")
+        break  
 
-if not found:
-    print("\nXXX NO WORKING CONFIGURATION FOUND XXX")
-else:
-    print("\nPlease report the WINNER source to me.")
