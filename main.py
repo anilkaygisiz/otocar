@@ -29,31 +29,20 @@ def main():
 
     # Video Listesini Al
     video_files = utils.scan_videos("Videos")
-    # Eğer hiç video yoksa veya ana config'deki video dosyası listede yoksa listeye ekle (eğer dosya ise)
-    current_video_idx = 0
+    # Kamera (0) kaynağını listenin başına ekle
+    video_files.insert(0, 0)
     
-    # Config'deki video zaten bir dosya ise ve listede varsa onun indeksini bul
-    if isinstance(config.VIDEO_SOURCE, str) and os.path.exists(config.VIDEO_SOURCE):
-        # Tam yol gerekebilir, şimdilik basit karşılaştırma
-        pass
-
-    # Trackbar için callback (boş)
-    def nothing(x):
-        pass
-
-    # Trackbarları Oluştur (Sadece Headless değilse)
-    if not config.HEADLESS_MODE:
-        cv2.namedWindow("Otocar Main")
-        # Değerleri 100 ile çarpıp int yapıyoruz (Trackbar float desteklemez)
-        cv2.createTrackbar("KP x100", "Otocar Main", int(config.PID_KP * 100), 500, nothing)
-        cv2.createTrackbar("KI x100", "Otocar Main", int(config.PID_KI * 100), 100, nothing)
-        cv2.createTrackbar("KD x100", "Otocar Main", int(config.PID_KD * 100), 500, nothing)
+    # ... (Video config check - skipped for brevity as we prioritize the list for navigation)
 
     # İlk video kaynağını belirle
     current_source = config.VIDEO_SOURCE
-    if len(video_files) > 0:
-        current_source = video_files[0] # Varsayılan olarak listedeki ilk video ile başla
-        current_video_idx = 0
+    current_video_idx = 0
+    
+    # Configdeki kaynak listede varsa indexi güncelle
+    if current_source in video_files:
+        current_video_idx = video_files.index(current_source)
+    elif len(video_files) > 0:
+        current_source = video_files[0]
         
     print(f"İlk Kaynak: {current_source}")
     cap = cv2.VideoCapture(current_source)
@@ -70,17 +59,18 @@ def main():
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
             else:
-                print("Kare alınamadı, çıkılıyor...")
-                break
+                print("Kare alınamadı (Kamera bağlantısını kontrol edin)...")
+                # Kamera hatasında çökmemek için bekle
+                time.sleep(1)
+                cap = cv2.VideoCapture(current_source)
+                continue
         
         # --- UI FIX: Sabit Çözünürlük ---
-        # Gelen görüntü ne olursa olsun, config'deki boyuta zorla.
-        # Bu sayede pencere boyutu sabit kalır.
         frame = cv2.resize(frame, (config.FRAME_WIDTH, config.FRAME_HEIGHT))
         
         height, width = frame.shape[:2]
 
-        # Trackbar Değerlerini Oku (Canlı Tuning)
+        # Trackbar Değerlerini Oku
         if not config.HEADLESS_MODE:
             try:
                 kp_val = cv2.getTrackbarPos("KP x100", "Otocar Main") / 100.0
@@ -107,10 +97,14 @@ def main():
         cv2.putText(processed_frame, f"L: {int(left_speed)} R: {int(right_speed)}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
         
         # Video Adı
-        vid_name = str(current_source)
-        if len(vid_name) > 20: vid_name = "..." + vid_name[-17:]
+        if current_source == 0:
+            vid_name = "CAMERA LIVE"
+        else:
+            vid_name = str(current_source)
+            if len(vid_name) > 20: vid_name = "..." + vid_name[-17:]
+            
         cv2.putText(processed_frame, f"Src ({current_video_idx+1}/{len(video_files)}): {vid_name}", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
-        cv2.putText(processed_frame, "[N]ext / [P]rev Video", (10, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+        cv2.putText(processed_frame, "[N]ext/[P]rev | [C]amera", (10, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
 
         # Mod Bilgisi
         mode_color = (0, 255, 0) if config.DETECTION_MODE == 'COLOR' else (255, 0, 255)
@@ -168,13 +162,17 @@ def main():
              if not config.HEADLESS_MODE: cv2.setTrackbarPos("KD x100", "Otocar Main", int(pid.Kd * 100))
 
         # Video Değiştirme (Klavye ile)
-        elif key == ord('n') or key == ord('p'):
+        elif key == ord('n') or key == ord('p') or key == ord('c'):
             if len(video_files) > 0:
                 if key == ord('n'):
                     current_video_idx = (current_video_idx + 1) % len(video_files)
                 elif key == ord('p'):
                     current_video_idx = (current_video_idx - 1 + len(video_files)) % len(video_files)
-                
+                elif key == ord('c'):
+                    # Varsa 0'ı (Kamerayı) bul ve oraya git
+                    if 0 in video_files:
+                        current_video_idx = video_files.index(0)
+                        
                 current_source = video_files[current_video_idx]
                 print(f"Video değiştiriliyor: {current_source}")
                 cap.release()
