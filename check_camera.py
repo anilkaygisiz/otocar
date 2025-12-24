@@ -1,53 +1,47 @@
 import cv2
 import time
 
-def test_camera(source, backend_name, backend_id):
-    print(f"Testing Source '{source}' with {backend_name}...")
-    try:
-        if backend_id is not None:
-             cap = cv2.VideoCapture(source, backend_id)
-        else:
-             cap = cv2.VideoCapture(source)
-             
-        if not cap.isOpened():
-            print(f"[-] Failed to open '{source}'")
-            return False
-            
-        # FORCE LOW RES & MJPG BEFORE READ
-        # This is critical for Raspberry Pi "Failed to allocate memory" errors
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-        cap.set(cv2.CAP_PROP_FPS, 30)
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-        time.sleep(1) # Warmup
+def test_camera_yuztanima_style(index):
+    print(f"Testing Index {index} (YuzTanima Style: V4L2 + 640x480)...")
+    
+    # 1. Open with V4L2
+    cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
+    
+    if not cap.isOpened():
+        print(f"[-] Failed to open Index {index}")
+        return False
         
-        # Try to read
-        ret, frame = cap.read()
-        if ret:
-            print(f"[+] SUCCESS! Camera works with {backend_name} (Low Res Mode)")
-            print(f"    Resolution: {int(cap.get(3))}x{int(cap.get(4))}")
-            cap.release()
-            return True
-        else:
-            print(f"[-] Opened, set MJPG/320x240, but failed to read frame.")
-            cap.release()
-            return False
-    except Exception as e:
-        print(f"[-] Error: {e}")
+    # 2. Set Resolution (Critical step from YuzTanima)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    # Optional: Wait a bit
+    time.sleep(1)
+    
+    # 3. Read
+    ret, frame = cap.read()
+    if ret:
+        print(f"[+] SUCCESS! Camera works!")
+        print(f"    Resolution: {frame.shape[1]}x{frame.shape[0]}")
+        cap.release()
+        return True
+    else:
+        print(f"[-] Opened but failed to read frame.")
+        cap.release()
         return False
 
-print("Scanning for cameras with LOW RES / MJPG force...")
-scenarios = [
-    (0, "Index 0 (V4L2 + MJPG Fix)", cv2.CAP_V4L2),
-    (0, "Index 0 (Any)", cv2.CAP_ANY),
-]
+indices = [0, 1, 10, -1]
 
 found = False
-for source, name, bid in scenarios:
-    if test_camera(source, name, bid):
-        print(f"\nWINNER: {name}")
+for idx in indices:
+    if test_camera_yuztanima_style(idx):
         found = True
         break
+
+if not found:
+    print("\nXXX HALA ÇALIŞMADI XXX")
+else:
+    print("\nÇALIŞTI! Lütfen main.py dosyasını buna göre güncellememi isteyin.")
 
 if not found:
     print("\nXXX NO CAMERA FOUND! XXX")
