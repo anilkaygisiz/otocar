@@ -1,8 +1,15 @@
 import os
 
-# Project Settings
-VERSION = "v0.1 Beta"
+# Otocar Konfigürasyon Dosyası
+VERSION = "0.2 (Beta - Camera Fixed)"
+# CHANGELOG v0.2:
+# - Fix: Raspberry Pi Legacy Camera desteği eklendi (enable_legacy_camera.sh).
+# - Fix: GStreamer bellek hataları giderildi.
+# - New: check_camera.py ve diagnose_system.py araçları eklendi.
 
+import cv2
+import numpy as np
+# Project Settings
 # Camera Settings
 # Webcam: 0, 1 (int)
 # File: "path/to/video.mp4" (str)
