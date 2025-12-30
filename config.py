@@ -13,7 +13,21 @@ import numpy as np
 # Camera Settings
 # Webcam: 0, 1 (int)
 # File: "path/to/video.mp4" (str)
-VIDEO_SOURCE = "Videos/test1.mp4"
+VIDEO_SOURCE = 0
+
+# Raspberry Pi 5 / Libcamera Settings
+# Pi 5'te V4L2 yerine bu GStreamer pipeline'ı kullanmak gerekebilir.
+PI5_CAMERA_PIPELINE = (
+    "libcamerasrc ! "
+    "video/x-raw, width=640, height=480, framerate=30/1 ! "
+    "videoconvert ! "
+    "video/x-raw, format=BGR ! "
+    "appsink"
+)
+
+# Resolution
+FRAME_WIDTH = 640
+FRAME_HEIGHT = 480
 
 # Eğer environment variable varsa oradan al (Override)
 env_source = os.getenv("VIDEO_SOURCE")

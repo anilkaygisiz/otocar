@@ -47,6 +47,46 @@ def main():
         
     first_run = True
     
+    # Akıllı Kamera Bulucu
+    def find_working_camera():
+        # NOT: Raspberry Pi CSI Kamera kullanıyorsanız "Legacy Camera" modu açık olmalı!
+        # (sudo raspi-config -> Interface -> Legacy Camera -> Yes)
+        
+        # 1. Standart V4L2 Taraması (Pi 4 Legacy / USB Cam)
+        indices = [0, 1, 10]
+        for idx in indices:
+            print(f"Kamera aranıyor (V4L2): Index {idx}...")
+            cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
+                # MJPG formatını zorla (Daha hızlıdır)
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+                time.sleep(1)
+                
+                # Test okuması
+                ret, _ = cap.read()
+                if ret:
+                    print(f"KAMERA BULUNDU: Index {idx} (V4L2)")
+                    return cap, idx
+                cap.release()
+
+        # 2. Raspberry Pi 5 / Libcamera Taraması (GStreamer)
+        print("V4L2 başarısız. Pi 5 Libcamera GStreamer deneniyor...")
+        try:
+            gst_pipeline = config.PI5_CAMERA_PIPELINE
+            cap = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    print(f"KAMERA BULUNDU: Libcamera GStreamer")
+                    return cap, "GSTREAMER"
+                cap.release()
+        except Exception as e:
+            print(f"GStreamer hatası: {e}")
+
+        return None, None
+    
     while True:
         # İlk turda veya değişimde VideoCapture başlat
         if 'cap' not in locals() or not cap.isOpened():
@@ -54,13 +94,29 @@ def main():
              
              if current_source == 0:
                  # Raspberry Pi Kamera Hatası Fix: V4L2 backend kullan
-                 cap = cv2.VideoCapture(current_source, cv2.CAP_V4L2)
+                 # cap = cv2.VideoCapture(current_source, cv2.CAP_V4L2) # Eski kod
                  # Donanım seviyesinde çözünürlük ayarla (Bellek hatasını önler)
-                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
-                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
+                 # cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
+                 # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
                  # MJPG formatını zorla (Daha hızlıdır)
-                 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-                 time.sleep(1) # Isınma süresi
+                 # cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+                 # time.sleep(1) # Isınma süresi
+                 
+                 # Yeni akıllı kamera bulucu kullan
+                 new_cap, found_source = find_working_camera()
+                 if new_cap:
+                     cap = new_cap
+                     current_source = found_source # Kaynağı güncelleyelim
+                 else:
+                     print("Hata: Hiçbir kamera bulunamadı!")
+                     # Siyah ekran oluşturup hata mesajı göster
+                     cap = None # cap'i geçersiz kıl
+                     ret = False # Okuma başarısız say
+                     frame = np.zeros((config.FRAME_HEIGHT, config.FRAME_WIDTH, 3), dtype=np.uint8)
+                     cv2.putText(frame, "KAMERA BULUNAMADI!", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                     cv2.putText(frame, "Baglantiyi kontrol et", (50, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+                     time.sleep(0.5)
+                     continue # Döngünün başına dön
              else:
                  cap = cv2.VideoCapture(current_source)
 
@@ -68,7 +124,7 @@ def main():
         
         # Hata Yönetimi: Okuma başarısızsa
         if not ret:
-            if isinstance(current_source, str):
+            if isinstance(current_source, str) and current_source != "GSTREAMER": # "GSTREAMER" özel bir durum, dosya değil
                 # Video dosyası ise başa sar
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue

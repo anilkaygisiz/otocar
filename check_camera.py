@@ -44,25 +44,30 @@ def test_config(index, backend_name, backend_id, use_gray=False):
 
 # Scenarios
 scenarios = [
-    # 1. Try CAP_ANY (Let OpenCV decide, GStreamer might work now that pipewire is gone)
-    (0, "CAP_ANY (Auto)", cv2.CAP_ANY, False),
+    # 1. Pi 5 Libcamera (GStreamer) - PREFERRED FOR PI 5
+    ("libcamerasrc ! video/x-raw, width=640, height=480, framerate=30/1 ! videoconvert ! appsink", 
+     "Pi 5 Libcamera", cv2.CAP_GSTREAMER, False),
+
+    # 2. Index 0 (Standard V4L2)
+    (0, "Index 0 (Auto)", cv2.CAP_V4L2, False),
     
-    # 2. Try V4L2 Grayscale Force (Bandwidth saver)
-    (0, "V4L2 (Raw/Gray)", cv2.CAP_V4L2, True),
-    
-    # 3. Last ditch: Index 0, V4L2, Normal
-    (0, "V4L2 (RGB)", cv2.CAP_V4L2, False)
+    # 3. Index 0 Grayscale
+    (0, "Index 0 (Gray)", cv2.CAP_V4L2, True),
+
+    # 4. CAP_ANY Fallback
+    (0, "Index 0 (Any)", cv2.CAP_ANY, False)
 ]
 
-print("Starting Camera Diagnostics (v4 - desperation)...")
+print("Starting Camera Diagnostics (v5 - Pi 5 Edition)...")
 found = False
-for idx, name, bid, gray in scenarios:
-    if test_config(idx, name, bid, gray):
+for src, name, bid, gray in scenarios:
+    if test_config(src, name, bid, gray):
         print(f"\nWINNER FOUND: {name}")
-        if gray: print("NOTE: Using Grayscale mode (Good for Lane Detection!)")
+        if gray: print("NOTE: Using Grayscale mode.")
         found = True
         break
         
 if not found:
     print("\nXXX ALL FAILED XXX")
+    print("Suggestion for Pi 5: Run 'rpicam-hello' to check hardware.")
 
