@@ -16,10 +16,9 @@ import numpy as np
 VIDEO_SOURCE = 0
 
 # Kısıtlamaları kaldırdım, bırakalım kamera ve opencv anlaşsın.
-# NOT: 'video/x-raw, format=YUY2' ekleyerek libcamerasrc'in sevdigi formati veriyoruz.
+# NOT: Basitlestirilmis pipeline (Auto Negotiation)
 PI5_CAMERA_PIPELINE = (
     "libcamerasrc ! "
-    "video/x-raw, width=640, height=480, framerate=30/1 ! "
     "videoconvert ! "
     "video/x-raw, format=BGR ! "
     "appsink drop=1"
