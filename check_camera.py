@@ -44,30 +44,38 @@ def test_config(index, backend_name, backend_id, use_gray=False):
 
 # Scenarios
 scenarios = [
-    # 1. Pi 5 Libcamera (GStreamer) - PREFERRED FOR PI 5
+    # 1. Pi 5 Standard (Explicit 640x480) - En Stabil Olan
     ("libcamerasrc ! video/x-raw, width=640, height=480, framerate=30/1 ! videoconvert ! appsink", 
-     "Pi 5 Libcamera", cv2.CAP_GSTREAMER, False),
+     "Pi 5 GStreamer (Standard)", cv2.CAP_GSTREAMER, False),
 
-    # 2. Index 0 (Standard V4L2)
-    (0, "Index 0 (Auto)", cv2.CAP_V4L2, False),
+    # 2. Pi 5 Simple (Auto Resolution)
+    ("libcamerasrc ! video/x-raw ! videoconvert ! appsink", 
+     "Pi 5 GStreamer (Simple)", cv2.CAP_GSTREAMER, False),
+
+    # 3. Pi 5 BGR Conversion (OpenCV Native)
+    ("libcamerasrc ! video/x-raw, width=640, height=480 ! videoconvert ! video/x-raw, format=BGR ! appsink", 
+     "Pi 5 GStreamer (BGR Force)", cv2.CAP_GSTREAMER, False),
+
+    # 4. Standard V4L2 (Index 0) - Pi 5 için genelde çalışmaz ama kontrol edelim
+    (0, "Index 0 (V4L2)", cv2.CAP_V4L2, False),
     
-    # 3. Index 0 Grayscale
-    (0, "Index 0 (Gray)", cv2.CAP_V4L2, True),
-
-    # 4. CAP_ANY Fallback
+    # 5. Index 0 Any
     (0, "Index 0 (Any)", cv2.CAP_ANY, False)
 ]
 
-print("Starting Camera Diagnostics (v5 - Pi 5 Edition)...")
+print("Starting Camera Diagnostics (v6 - Pi 5 Deep Dive)...")
+print("UYARI: Eger 'rpicam-hello' calismiyorsa bunlarin hicbiri calismaz!")
 found = False
 for src, name, bid, gray in scenarios:
     if test_config(src, name, bid, gray):
         print(f"\nWINNER FOUND: {name}")
-        if gray: print("NOTE: Using Grayscale mode.")
+        print(f"Use this source in config.py: {src}")
         found = True
         break
         
 if not found:
     print("\nXXX ALL FAILED XXX")
-    print("Suggestion for Pi 5: Run 'rpicam-hello' to check hardware.")
+    print("\nLutfen sunu deneyin (Donanim Kontrolu):")
+    print("rpicam-hello -t 5000")
+    print("Eger bu hata verirse, sorun kablodadir.")
 
