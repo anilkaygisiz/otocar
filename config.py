@@ -15,15 +15,14 @@ import numpy as np
 # File: "path/to/video.mp4" (str)
 VIDEO_SOURCE = 0
 
-# Raspberry Pi 5 / Libcamera Settings
-# Pi 5'te V4L2 yerine bu GStreamer pipeline'ı kullanmak gerekebilir.
 # Kısıtlamaları kaldırdım, bırakalım kamera ve opencv anlaşsın.
+# NOT: 'video/x-raw, format=YUY2' ekleyerek libcamerasrc'in sevdigi formati veriyoruz.
 PI5_CAMERA_PIPELINE = (
     "libcamerasrc ! "
-    "video/x-raw ! " # Cozunurluk zorlamiyorum
+    "video/x-raw, width=640, height=480, framerate=30/1 ! "
     "videoconvert ! "
     "video/x-raw, format=BGR ! "
-    "appsink"
+    "appsink drop=1"
 )
 
 # Resolution

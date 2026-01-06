@@ -8,23 +8,68 @@ import lane_detector
 import pid_controller
 import utils
 
+def find_working_camera():
+    # NOT: Raspberry Pi CSI Kamera kullanıyorsanız "Legacy Camera" modu açık olmalı!
+    # Pi 5'te ise Libcamera/GStreamer kullanılır.
+    
+    # 1. Standart V4L2 Taraması (Pi 4 Legacy / USB Cam)
+    indices = [0, 1, 10]
+    for idx in indices:
+        # print(f"Kamera aranıyor (V4L2): Index {idx}...")
+        cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+            time.sleep(1)
+            
+            ret, _ = cap.read()
+            if ret:
+                print(f"KAMERA BULUNDU: Index {idx} (V4L2)")
+                return cap, idx
+            cap.release()
+
+    # 2. Raspberry Pi 5 / Libcamera Taraması (GStreamer)
+    print("V4L2 başarısız. Pi 5 Libcamera GStreamer deneniyor...")
+    try:
+        gst_pipeline = config.PI5_CAMERA_PIPELINE
+        cap = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
+        if cap.isOpened():
+            ret, _ = cap.read()
+            if ret:
+                print(f"KAMERA BULUNDU: Libcamera GStreamer")
+                return cap, "GSTREAMER"
+            cap.release()
+    except Exception as e:
+        print(f"GStreamer hatası: {e}")
+
+    return None, None
+
 def main():
-    print(f"Otocar {config.VERSION} Başlatılıyor... Kaynak: {config.VIDEO_SOURCE}")
+    print(f"Otocar {config.VERSION} Başlatılıyor... Hedef Kaynak: {config.VIDEO_SOURCE}")
     
     # PID Kontrolcüsünü Başlat
     pid = pid_controller.PID(config.PID_KP, config.PID_KI, config.PID_KD)
     
+    # --- BAŞLANGIÇ KAYNAĞI AYARLAMA (FALLBACK OK) ---
     cap = cv2.VideoCapture(config.VIDEO_SOURCE)
+    current_source = config.VIDEO_SOURCE
     
     if not cap.isOpened():
-        print(f"Hata: Video kaynağı açılamadı: {config.VIDEO_SOURCE}")
-        # Test videosu yoksa oluşturmayı öner
-        if config.VIDEO_SOURCE == "lane_test.mp4":
-             print("İpucu: 'python generate_test_video.py' çalıştırarak test videosu oluşturun.")
-        return
+        print(f"UYARI: Hedef kaynak ({config.VIDEO_SOURCE}) açılamadı.")
+        print("[-] Otomatik olarak kamera aranıyor...")
+        cap, src = find_working_camera()
+        if cap:
+            print(f"[+] Kurtarma Başarılı: Kaynak {src} kullanılıyor.")
+            current_source = src
+        else:
+            print("HATA: Ne video dosyası ne de kamera bulunabildi!")
+            if config.VIDEO_SOURCE == "lane_test.mp4":
+                 print("İpucu: 'python generate_test_video.py' çalıştırarak test videosu oluşturun.")
+            # Devam et (Siyah ekran göster)
 
     # Kamera çözünürlüğünü ayarla (Webcam ise işe yarar)
-    if isinstance(config.VIDEO_SOURCE, int):
+    if isinstance(current_source, int):
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
@@ -36,7 +81,7 @@ def main():
     # ... (Video config check - skipped for brevity as we prioritize the list for navigation)
 
     # İlk video kaynağını belirle
-    current_source = config.VIDEO_SOURCE
+    # current_source = config.VIDEO_SOURCE # Bu satır yukarı taşındı
     current_video_idx = 0
     
     # Configdeki kaynak listede varsa indexi güncelle
@@ -47,53 +92,13 @@ def main():
         
     first_run = True
     
-    # Akıllı Kamera Bulucu
-    def find_working_camera():
-        # NOT: Raspberry Pi CSI Kamera kullanıyorsanız "Legacy Camera" modu açık olmalı!
-        # (sudo raspi-config -> Interface -> Legacy Camera -> Yes)
-        
-        # 1. Standart V4L2 Taraması (Pi 4 Legacy / USB Cam)
-        indices = [0, 1, 10]
-        for idx in indices:
-            print(f"Kamera aranıyor (V4L2): Index {idx}...")
-            cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
-            if cap.isOpened():
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
-                # MJPG formatını zorla (Daha hızlıdır)
-                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-                time.sleep(1)
-                
-                # Test okuması
-                ret, _ = cap.read()
-                if ret:
-                    print(f"KAMERA BULUNDU: Index {idx} (V4L2)")
-                    return cap, idx
-                cap.release()
-
-        # 2. Raspberry Pi 5 / Libcamera Taraması (GStreamer)
-        print("V4L2 başarısız. Pi 5 Libcamera GStreamer deneniyor...")
-        try:
-            gst_pipeline = config.PI5_CAMERA_PIPELINE
-            cap = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
-            if cap.isOpened():
-                ret, _ = cap.read()
-                if ret:
-                    print(f"KAMERA BULUNDU: Libcamera GStreamer")
-                    return cap, "GSTREAMER"
-                cap.release()
-        except Exception as e:
-            print(f"GStreamer hatası: {e}")
-
-        return None, None
-    
     while True:
         # İlk turda veya değişimde VideoCapture başlat
         if 'cap' not in locals() or cap is None or not cap.isOpened():
              print(f"Kaynak başlatılıyor: {current_source}")
              
-             if current_source == 0:
-                 # Yeni akıllı kamera bulucu kullan
+             if current_source == 0 or current_source == "GSTREAMER":
+                 # Akıllı kamera bulucu kullan
                  new_cap, found_source = find_working_camera()
                  if new_cap:
                      cap = new_cap
@@ -105,12 +110,12 @@ def main():
                      ret = False # Okuma başarısız say
                      # Frame uret ve bekle, sonra basa don
                      frame = np.zeros((config.FRAME_HEIGHT, config.FRAME_WIDTH, 3), dtype=np.uint8)
-                     cv2.putText(frame, "KAMERA BULUNAMADI!", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                     cv2.putText(frame, "KAMERA YOK", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                      cv2.putText(frame, "Baglantiyi ve 'install_pi5.sh'i kontrol et", (20, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
                      
                      # Ekranda goster (Eger GUI calisiyorsa)
                      try:
-                        cv2.imshow("Otocar Lane Detection", frame)
+                        cv2.imshow("Otocar Main", frame)
                         if cv2.waitKey(500) & 0xFF == ord('q'):
                             break
                      except:
@@ -240,7 +245,8 @@ def main():
                 del cap 
 
             
-    cap.release()
+    if 'cap' in locals() and cap is not None:
+        cap.release()
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
