@@ -17,9 +17,10 @@ VIDEO_SOURCE = 0
 
 # Raspberry Pi 5 / Libcamera Settings
 # Pi 5'te V4L2 yerine bu GStreamer pipeline'ı kullanmak gerekebilir.
+# Kısıtlamaları kaldırdım, bırakalım kamera ve opencv anlaşsın.
 PI5_CAMERA_PIPELINE = (
     "libcamerasrc ! "
-    "video/x-raw, width=640, height=480, framerate=30/1 ! "
+    "video/x-raw ! " # Cozunurluk zorlamiyorum
     "videoconvert ! "
     "video/x-raw, format=BGR ! "
     "appsink"

@@ -89,19 +89,10 @@ def main():
     
     while True:
         # İlk turda veya değişimde VideoCapture başlat
-        if 'cap' not in locals() or not cap.isOpened():
+        if 'cap' not in locals() or cap is None or not cap.isOpened():
              print(f"Kaynak başlatılıyor: {current_source}")
              
              if current_source == 0:
-                 # Raspberry Pi Kamera Hatası Fix: V4L2 backend kullan
-                 # cap = cv2.VideoCapture(current_source, cv2.CAP_V4L2) # Eski kod
-                 # Donanım seviyesinde çözünürlük ayarla (Bellek hatasını önler)
-                 # cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
-                 # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
-                 # MJPG formatını zorla (Daha hızlıdır)
-                 # cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-                 # time.sleep(1) # Isınma süresi
-                 
                  # Yeni akıllı kamera bulucu kullan
                  new_cap, found_source = find_working_camera()
                  if new_cap:
@@ -112,10 +103,18 @@ def main():
                      # Siyah ekran oluşturup hata mesajı göster
                      cap = None # cap'i geçersiz kıl
                      ret = False # Okuma başarısız say
+                     # Frame uret ve bekle, sonra basa don
                      frame = np.zeros((config.FRAME_HEIGHT, config.FRAME_WIDTH, 3), dtype=np.uint8)
                      cv2.putText(frame, "KAMERA BULUNAMADI!", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                     cv2.putText(frame, "Baglantiyi kontrol et", (50, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
-                     time.sleep(0.5)
+                     cv2.putText(frame, "Baglantiyi ve 'install_pi5.sh'i kontrol et", (20, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+                     
+                     # Ekranda goster (Eger GUI calisiyorsa)
+                     try:
+                        cv2.imshow("Otocar Lane Detection", frame)
+                        if cv2.waitKey(500) & 0xFF == ord('q'):
+                            break
+                     except:
+                        time.sleep(1)
                      continue # Döngünün başına dön
              else:
                  cap = cv2.VideoCapture(current_source)

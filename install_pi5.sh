@@ -4,7 +4,8 @@ echo "=== Otocar: Raspberry Pi 5 Kurulum Sihirbazı ==="
 # 1. Sistem Güncelleme ve Kütüphaneler
 echo "[-] Sistem güncelleniyor ve bağımlılıklar kuruluyor..."
 sudo apt update
-sudo apt install -y libcamera-dev libopencv-dev python3-opencv libhdf5-dev libatlas-base-dev
+# libatlas yerine libopenblas (yeni OS uyumlulugu)
+sudo apt install -y libcamera-dev libopencv-dev python3-opencv libopenblas-dev libhdf5-dev
 
 # 2. Sanal Ortam (Virtual Env) - Bookworm için zorunlu
 if [ ! -d "venv" ]; then
@@ -15,10 +16,9 @@ fi
 # 3. Paket Yükleme
 echo "[-] Python kütüphaneleri yükleniyor..."
 source venv/bin/activate
-# Pi 5'te 'opencv-python' yerine 'opencv-python-headless' daha stabil olabilir (Qt cakismasi yoksa)
-# Ama biz GUI kullandigimiz icin normalini deneyelim, sorun olursa headless'a geceriz.
 pip install --upgrade pip
-pip install opencv-python-headless numpy pyserial
+# GUI destegi icin 'opencv-python' (headless degil!)
+pip install opencv-python numpy pyserial
 
 echo ""
 echo "=== KURULUM TAMAMLANDI ==="
