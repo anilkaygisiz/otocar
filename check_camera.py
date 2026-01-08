@@ -1,81 +1,87 @@
 import cv2
 import time
+import sys
 
-def test_config(index, backend_name, backend_id, use_gray=False):
-    desc = f"Index {index} | {backend_name}"
-    if use_gray: desc += " | GRAYSCALE/RAW"
-    
-    print(f"--- Testing: {desc} ---")
-    
-    cap = cv2.VideoCapture(index, backend_id)
-    if not cap.isOpened():
-        print("[-] Failed to open.")
-        return False
-        
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
-    if use_gray:
-        # Prevent auto-conversion to RGB (gets raw data/YUYV or Grey)
-        cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
-        
-    # Read properties
-    aw = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    ah = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    print(f"    Set -> {int(aw)}x{int(ah)}")
-    
-    time.sleep(1) # Warmup
-    
-    # Read loop
-    success = False
-    for i in range(20): # Increased attempts
-        ret, frame = cap.read()
-        if ret:
-            print(f"[+] SUCCESS! Frame {i} captured.")
-            if frame is not None:
-                print(f"    Shape: {frame.shape}")
-                # If raw, it might be 2D or YUYV
-            success = True
-            break
-        time.sleep(0.1)
-        
-    cap.release()
-    return success
-
-# Scenarios
-scenarios = [
-    # 1. Pi 5 Standard (Explicit 640x480) - En Stabil Olan
-    ("libcamerasrc ! video/x-raw, width=640, height=480, framerate=30/1 ! videoconvert ! appsink", 
-     "Pi 5 GStreamer (Standard)", cv2.CAP_GSTREAMER, False),
-
-    # 2. Pi 5 Simple (Auto Resolution)
-    ("libcamerasrc ! video/x-raw ! videoconvert ! appsink", 
-     "Pi 5 GStreamer (Simple)", cv2.CAP_GSTREAMER, False),
-
-    # 3. Pi 5 BGR Conversion (OpenCV Native)
-    ("libcamerasrc ! video/x-raw, width=640, height=480 ! videoconvert ! video/x-raw, format=BGR ! appsink", 
-     "Pi 5 GStreamer (BGR Force)", cv2.CAP_GSTREAMER, False),
-
-    # 4. Standard V4L2 (Index 0) - Pi 5 için genelde çalışmaz ama kontrol edelim
-    (0, "Index 0 (V4L2)", cv2.CAP_V4L2, False),
-    
-    # 5. Index 0 Any
-    (0, "Index 0 (Any)", cv2.CAP_ANY, False)
+# v7: Pi 5 Explicit Formats (The "Golden" Tests)
+GST_PIPELINES = [
+    (
+        "libcamerasrc ! video/x-raw, width=640, height=480, format=YUY2 ! "
+        "videoconvert ! video/x-raw, format=BGR ! appsink drop=1",
+        "Pi 5: Explicit YUY2 (Recommended)"
+    ),
+    (
+        "libcamerasrc ! video/x-raw, width=640, height=480, format=NV12 ! "
+        "videoconvert ! video/x-raw, format=BGR ! appsink drop=1",
+        "Pi 5: Explicit NV12"
+    ),
+    (
+        "libcamerasrc ! video/x-raw, width=640, height=480 ! "
+        "videoconvert ! video/x-raw, format=BGR ! appsink drop=1",
+        "Pi 5: Explicit Res (Auto Format)"
+    ),
+    (
+        "libcamerasrc ! videoconvert ! video/x-raw, format=BGR ! appsink drop=1", 
+        "Pi 5: Fully Auto"
+    ),
 ]
 
-print("Starting Camera Diagnostics (v6 - Pi 5 Deep Dive)...")
-print("UYARI: Eger 'rpicam-hello' calismiyorsa bunlarin hicbiri calismaz!")
-found = False
-for src, name, bid, gray in scenarios:
-    if test_config(src, name, bid, gray):
-        print(f"\nWINNER FOUND: {name}")
-        print(f"Use this source in config.py: {src}")
-        found = True
-        break
-        
-if not found:
-    print("\nXXX ALL FAILED XXX")
-    print("\nLutfen sunu deneyin (Donanim Kontrolu):")
-    print("rpicam-hello -t 5000")
-    print("Eger bu hata verirse, sorun kablodadir.")
+def check_gstreamer_support():
+    try:
+        build_info = cv2.getBuildInformation()
+        if "GStreamer: NO" in build_info:
+            print("KRITIK: OpenCV GStreamer destegi YOK!")
+            return False
+    except:
+        pass
+    return True
 
+def test_pipeline(pipeline, desc):
+    print(f"\n--- TEST: {desc} ---")
+    print(f"Pipeline: {pipeline}")
+    
+    cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+    if not cap.isOpened():
+        print("Sonuc: ACILMADI (isOpened=False)")
+        return False
+        
+    print("Kamera acildi, frame okunuyor...")
+    success_count = 0
+    start = time.time()
+    
+    while time.time() - start < 3.0: # 3 saniye dene
+        ret, frame = cap.read()
+        if ret:
+            success_count += 1
+            if success_count == 1:
+                print(f"ILK FRAME BASARILI: {frame.shape}")
+                # Birkac frame daha oku emin ol
+            if success_count > 10:
+                print("Sonuc: BASARILI (Stabil akis var)")
+                cap.release()
+                return True
+        else:
+            time.sleep(0.01)
+            
+    cap.release()
+    print("Sonuc: TIMEOUT (Frame gelmedi)")
+    return False
+
+def main():
+    print("=== OTOAR KAMERA TANI ARACI v7 (Remote Push) ===")
+    check_gstreamer_support()
+    
+    works = False
+    for p, d in GST_PIPELINES:
+        if test_pipeline(p, d):
+            print(f"\n\n>>> TEBRIKLER! Calisan Ayar Bulundu: {d}")
+            print("config.py dosyasina sunu yazin:")
+            print(f"PI5_CAMERA_PIPELINE = '{p}'")
+            works = True
+            break
+            
+    if not works:
+        print("\n\n>>> HICBISEY CALISMADI <<<")
+        print("Lutfen 'rpicam-hello' komutunu deneyin.")
+
+if __name__ == "__main__":
+    main()
