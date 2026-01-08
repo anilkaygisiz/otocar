@@ -8,42 +8,8 @@ import lane_detector
 import pid_controller
 import utils
 
-def find_working_camera():
-    # NOT: Raspberry Pi CSI Kamera kullanıyorsanız "Legacy Camera" modu açık olmalı!
-    # Pi 5'te ise Libcamera/GStreamer kullanılır.
-    
-    # 1. Standart V4L2 Taraması (Pi 4 Legacy / USB Cam)
-    indices = [0, 1, 10]
-    for idx in indices:
-        # print(f"Kamera aranıyor (V4L2): Index {idx}...")
-        cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
-        if cap.isOpened():
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-            time.sleep(1)
-            
-            ret, _ = cap.read()
-            if ret:
-                print(f"KAMERA BULUNDU: Index {idx} (V4L2)")
-                return cap, idx
-            cap.release()
-
-    # 2. Raspberry Pi 5 / Libcamera Taraması (GStreamer)
-    print("V4L2 başarısız. Pi 5 Libcamera GStreamer deneniyor...")
-    try:
-        gst_pipeline = config.PI5_CAMERA_PIPELINE
-        cap = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
-        if cap.isOpened():
-            ret, _ = cap.read()
-            if ret:
-                print(f"KAMERA BULUNDU: Libcamera GStreamer")
-                return cap, "GSTREAMER"
-            cap.release()
-    except Exception as e:
-        print(f"GStreamer hatası: {e}")
-
-    return None, None
+# Pi 5 uyumlu kamera wrapper'ı kullan
+from camera_wrapper import CameraWrapper, find_working_camera
 
 def main():
     print(f"Otocar {config.VERSION} Başlatılıyor... Hedef Kaynak: {config.VIDEO_SOURCE}")
@@ -52,13 +18,21 @@ def main():
     pid = pid_controller.PID(config.PID_KP, config.PID_KI, config.PID_KD)
     
     # --- BAŞLANGIÇ KAYNAĞI AYARLAMA (FALLBACK OK) ---
-    cap = cv2.VideoCapture(config.VIDEO_SOURCE)
-    current_source = config.VIDEO_SOURCE
+    # Pi 5 için CameraWrapper kullan
+    if config.VIDEO_SOURCE == 0:
+        # Kamera isteniyor, CameraWrapper ile aç
+        cap, src = find_working_camera(config.FRAME_WIDTH, config.FRAME_HEIGHT)
+        current_source = src if src else 0
+    else:
+        # Video dosyası, OpenCV ile aç
+        cap = CameraWrapper(source=config.VIDEO_SOURCE)
+        cap.open()
+        current_source = config.VIDEO_SOURCE
     
-    if not cap.isOpened():
+    if cap is None or not cap.isOpened():
         print(f"UYARI: Hedef kaynak ({config.VIDEO_SOURCE}) açılamadı.")
         print("[-] Otomatik olarak kamera aranıyor...")
-        cap, src = find_working_camera()
+        cap, src = find_working_camera(config.FRAME_WIDTH, config.FRAME_HEIGHT)
         if cap:
             print(f"[+] Kurtarma Başarılı: Kaynak {src} kullanılıyor.")
             current_source = src
@@ -97,12 +71,12 @@ def main():
         if 'cap' not in locals() or cap is None or not cap.isOpened():
              print(f"Kaynak başlatılıyor: {current_source}")
              
-             if current_source == 0 or current_source == "GSTREAMER":
-                 # Akıllı kamera bulucu kullan
-                 new_cap, found_source = find_working_camera()
+             if current_source == 0 or current_source == "picamera2":
+                 # Akıllı kamera bulucu kullan (Pi 5 uyumlu)
+                 new_cap, found_source = find_working_camera(config.FRAME_WIDTH, config.FRAME_HEIGHT)
                  if new_cap:
                      cap = new_cap
-                     current_source = found_source # Kaynağı güncelleyelim
+                     current_source = found_source
                  else:
                      print("Hata: Hiçbir kamera bulunamadı!")
                      # Siyah ekran oluşturup hata mesajı göster
@@ -122,13 +96,15 @@ def main():
                         time.sleep(1)
                      continue # Döngünün başına dön
              else:
-                 cap = cv2.VideoCapture(current_source)
+                 # Video dosyası, CameraWrapper ile aç
+                 cap = CameraWrapper(source=current_source)
+                 cap.open()
 
         ret, frame = cap.read()
         
         # Hata Yönetimi: Okuma başarısızsa
         if not ret:
-            if isinstance(current_source, str) and current_source != "GSTREAMER": # "GSTREAMER" özel bir durum, dosya değil
+            if isinstance(current_source, str) and current_source != "picamera2":
                 # Video dosyası ise başa sar
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
